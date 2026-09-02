@@ -1,3 +1,7 @@
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHasher, PasswordVerifier, phc::PasswordHash},
+};
 use axum::{
     Json, Router,
     extract::State,
@@ -7,12 +11,19 @@ use axum::{
 use axum_session_sqlx::SessionSqlitePool;
 use serde::{Deserialize, Serialize};
 
-use crate::AppState;
+use crate::{AppState, errors::AppError};
 
 type Session = axum_session::Session<SessionSqlitePool>;
 
 #[derive(Deserialize)]
 pub struct LoginRequest {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct RegisterRequest {
+    pub name: String,
     pub email: String,
     pub password: String,
 }
@@ -29,43 +40,69 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/login", post(login))
         .route("/logout", post(logout))
+        .route("/register", post(register))
         .route("/me", get(me))
 }
 
 // --- Handlers ---
 
-/// POST /auth/login
+/// POST /api/auth/login
 async fn login(
     State(state): State<AppState>,
     session: Session,
     Json(payload): Json<LoginRequest>,
-) -> Result<Json<UserResponse>, (StatusCode, &'static str)> {
-    // 1. Fetch user from SQLite using state.db
-    // (Adjust column names to match your schema)
+) -> Result<Json<UserResponse>, AppError> {
     let user = sqlx::query!(
         "SELECT id, email, password_hash FROM users WHERE email = ?",
         payload.email
     )
     .fetch_optional(&state.db)
     .await
-    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+    .map_err(|_| AppError::LoginError())?
+    .ok_or(AppError::LoginError())?;
 
-    let user = match user {
-        Some(u) => u,
-        None => return Err((StatusCode::UNAUTHORIZED, "Invalid username or password")),
-    };
+    let raw_hash = user.password_hash.ok_or(AppError::LoginError())?;
+    let password_hash = PasswordHash::new(&raw_hash)?;
 
-    // 2. Verify password (e.g., using argon2 or bcrypt)
-    // let valid = verify_password(&payload.password, &user.password_hash);
-    // if !valid { return Err((StatusCode::UNAUTHORIZED, "Invalid credentials")); }
+    Argon2::default().verify_password(&payload.password.as_bytes(), &password_hash)?;
 
-    // 3. Store user identity in the session
     session.set("user_id", user.id);
     session.set("email", user.email.clone());
 
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
+    }))
+}
+
+/// POST /api/auth/register
+async fn register(
+    State(state): State<AppState>,
+    session: Session,
+    Json(payload): Json<RegisterRequest>,
+) -> Result<Json<UserResponse>, AppError> {
+    let password_hash = Argon2::default()
+        .hash_password(payload.password.as_bytes())?
+        .to_string();
+
+    let result = sqlx::query!(
+        "INSERT INTO users (name, email, password_hash, provider) VALUES (?, ?, ?, ?)",
+        payload.name,
+        payload.email,
+        password_hash,
+        "username-password"
+    )
+    .execute(&state.db)
+    .await?;
+
+    let id = result.last_insert_rowid();
+
+    session.set("user_id", id);
+    session.set("email", payload.email.clone());
+
+    Ok(Json(UserResponse {
+        id,
+        email: payload.email,
     }))
 }
 

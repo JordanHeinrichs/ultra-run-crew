@@ -1,3 +1,4 @@
+use argon2::password_hash;
 use axum::{
     Json,
     http::StatusCode,
@@ -13,6 +14,14 @@ pub enum AppError {
 
     #[error("Authentication failed: {0}")]
     Auth(String),
+
+    #[error("Password hashing error")]
+    PasswordHash(#[from] password_hash::Error),
+    #[error("Password hashing error")]
+    PasswordHash2(#[from] password_hash::phc::Error),
+
+    #[error("Login Error")]
+    LoginError(),
 
     #[error("Internal server error")]
     Internal,
@@ -35,6 +44,18 @@ impl IntoResponse for AppError {
                 "A database error occurred.".to_string(),
             ),
             AppError::Auth(msg) => (StatusCode::UNAUTHORIZED, msg),
+            AppError::PasswordHash(_) => (
+                StatusCode::UNAUTHORIZED,
+                "Invalid username or password".to_string(),
+            ),
+            AppError::PasswordHash2(_) => (
+                StatusCode::UNAUTHORIZED,
+                "Invalid username or password".to_string(),
+            ),
+            AppError::LoginError() => (
+                StatusCode::UNAUTHORIZED,
+                "Invalid username or password".to_string(),
+            ),
             AppError::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Something went wrong internally.".to_string(),

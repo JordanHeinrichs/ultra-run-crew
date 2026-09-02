@@ -8,7 +8,7 @@ name = "backend"
 path = "backend/main.rs"
 
 [dependencies]
-argon2 = "0.5.3"
+argon2 = { version = "0.6.0" }
 axum = "0.8.9"
 axum_csrf = "0.11.0"
 axum_session = "0.21.0"

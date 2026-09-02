@@ -2,6 +2,7 @@ use axum::Router;
 use axum_csrf::CsrfConfig;
 use axum_session::{SessionConfig, SessionLayer, SessionStore};
 use axum_session_sqlx::SessionSqlitePool;
+use rust_embed::Embed;
 use std::net::SocketAddr;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
@@ -9,6 +10,11 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod errors;
 mod routes;
+
+#[allow(dead_code)]
+#[derive(Embed, Clone)]
+#[folder = "build/"]
+struct Assets;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -57,17 +63,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         // Mount sub-routers from your routes/ directory module
         // .nest("/", routes::dashboard::router())
-        .nest("/auth", routes::auth::router())
-        // Serve compiled Svelte from static
-        .nest_service(
-            "/dist",
-            ServeDir::new("dist").not_found_service(ServeFile::new("dist/index.html")),
+        .nest("/api/auth", routes::auth::router())
+        .fallback_service(
+            ServeDir::new("build").not_found_service(ServeFile::new("build/app.html")),
         )
-        // High-performance request tracking and latency logs
         .layer(TraceLayer::new_for_http())
-        // Injects session validation middleware down into handlers
         .layer(SessionLayer::new(session_store))
-        // Feed the application state struct into the router stack
         .with_state(state);
 
     // 9. Bind Network Port and Boot Server Instance

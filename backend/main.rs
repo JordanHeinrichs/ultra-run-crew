@@ -1,13 +1,18 @@
-use axum::Router;
+use crate::auth_middleware::auth_middleware;
+#[cfg(debug_assertions)]
+use axum::http::HeaderValue;
+use axum::{Router, http::Method, http::header, middleware};
 use axum_csrf::CsrfConfig;
 use axum_session::{SessionConfig, SessionLayer, SessionStore};
 use axum_session_sqlx::SessionSqlitePool;
 use rust_embed::Embed;
 use std::net::SocketAddr;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod auth_middleware;
 mod errors;
 mod routes;
 
@@ -49,27 +54,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // let is_production = std::env::var("APP_ENV").unwrap_or_default() == "production";
 
-    // 6. Initialize CSRF Configuration Layer
-    // Generates a new random cryptographic signature key on every boot sequence
     let csrf_config = CsrfConfig::default();
 
-    // 7. Assemble Global Application State
     let state = AppState {
         db: db_pool,
         csrf_config,
     };
 
-    // 8. Build the Router Architecture and Chain Middleware
+    let protected_routes = Router::new().nest("/races", routes::races::router()).layer(
+        middleware::from_fn_with_state(state.clone(), auth_middleware),
+    );
+
     let app = Router::new()
-        // Mount sub-routers from your routes/ directory module
-        // .nest("/", routes::dashboard::router())
         .nest("/api/auth", routes::auth::router())
+        .nest("/api", protected_routes)
         .fallback_service(
             ServeDir::new("build").not_found_service(ServeFile::new("build/app.html")),
         )
         .layer(TraceLayer::new_for_http())
         .layer(SessionLayer::new(session_store))
         .with_state(state);
+
+    // Enable CORS only during dev/debug builds
+    #[cfg(debug_assertions)]
+    let app = app.layer(
+        CorsLayer::new()
+            .allow_origin("http://127.0.0.1:5173".parse::<HeaderValue>().unwrap())
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
+            .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
+            .allow_credentials(true),
+    );
 
     // 9. Bind Network Port and Boot Server Instance
     let port = std::env::var("PORT").unwrap_or_else(|_| "3000".to_string());

@@ -34,8 +34,6 @@ pub struct UserResponse {
     pub email: String,
 }
 
-// --- Auth Router Setup ---
-
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/login", post(login))

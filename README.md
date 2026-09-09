@@ -131,3 +131,5 @@ Sample .env file:
 DATABASE_URL="sqlite://app.db"
 APP_ENV="development"
 ```
+
+To update bindings on the FE run `cargo test export_bindings`

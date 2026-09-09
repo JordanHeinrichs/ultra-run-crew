@@ -12,9 +12,6 @@ pub enum AppError {
     #[error("Database error occurred")]
     Database(#[from] sqlx::Error),
 
-    #[error("Authentication failed: {0}")]
-    Auth(String),
-
     #[error("Password hashing error")]
     PasswordHash(#[from] password_hash::Error),
     #[error("Password hashing error")]
@@ -22,6 +19,9 @@ pub enum AppError {
 
     #[error("Login Error")]
     LoginError(),
+
+    #[error("Not Found")]
+    NotFound(String),
 
     #[error("Internal server error")]
     Internal,
@@ -43,7 +43,6 @@ impl IntoResponse for AppError {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "A database error occurred.".to_string(),
             ),
-            AppError::Auth(msg) => (StatusCode::UNAUTHORIZED, msg),
             AppError::PasswordHash(_) => (
                 StatusCode::UNAUTHORIZED,
                 "Invalid username or password".to_string(),
@@ -56,6 +55,7 @@ impl IntoResponse for AppError {
                 StatusCode::UNAUTHORIZED,
                 "Invalid username or password".to_string(),
             ),
+            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
             AppError::Internal => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Something went wrong internally.".to_string(),

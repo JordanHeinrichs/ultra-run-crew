@@ -1,15 +1,37 @@
 use crate::AppState;
 use axum::{
-    body::Body, extract::State, http::Request, http::StatusCode, middleware::Next,
+    body::Body,
+    extract::{FromRequestParts, State},
+    http::{Request, StatusCode, request::Parts},
+    middleware::Next,
     response::Response,
 };
-use axum_session::ReadOnlySession;
+use axum_session::{ReadOnlySession, Session};
 use axum_session_sqlx::SessionSqlitePool;
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
     pub user_id: i64,
-    pub email: String,
+}
+
+impl<S> FromRequestParts<S> for AuthenticatedUser
+where
+    S: Send + Sync,
+{
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let session: Session<SessionSqlitePool> = Session::from_request_parts(parts, state)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        let user_id: Option<i64> = session.get("user_id");
+
+        match user_id {
+            Some(user_id) => Ok(AuthenticatedUser { user_id }),
+            None => Err(StatusCode::UNAUTHORIZED),
+        }
+    }
 }
 
 pub async fn auth_middleware(
@@ -22,7 +44,7 @@ pub async fn auth_middleware(
 
     let user = sqlx::query_as!(
         AuthenticatedUser,
-        "SELECT id as user_id, email FROM users WHERE id = ?",
+        "SELECT id as user_id FROM users WHERE id = ?",
         user_id
     )
     .fetch_optional(&state.db)

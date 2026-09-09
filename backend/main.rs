@@ -7,12 +7,13 @@ use axum_session::{SessionConfig, SessionLayer, SessionStore};
 use axum_session_sqlx::SessionSqlitePool;
 use rust_embed::Embed;
 use std::net::SocketAddr;
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod auth_middleware;
+mod db;
 mod errors;
 mod routes;
 

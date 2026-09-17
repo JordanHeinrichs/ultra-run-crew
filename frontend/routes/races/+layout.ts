@@ -6,12 +6,14 @@ import { resolve } from '$app/paths';
 
 export const load = async () => {
 	if (!user.id) {
-		goto(resolve('/login'));
+		await goto(resolve('/login'));
+		return;
 	}
 
 	const res = await apiFetch(`/api/users/${user.id}`);
 	if (!res.ok) {
-		goto(resolve('/login'));
+		await goto(resolve('/login'));
+		return;
 	}
 	const loadedUser: User = await res.json();
 	return {

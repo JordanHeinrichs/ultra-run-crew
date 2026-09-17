@@ -6,7 +6,7 @@ export interface UserState {
 
 const getInitialUser = (): number | null => {
 	const storageVal = localStorage.getItem('user_id');
-	if (storageVal && !isFinite(parseInt(storageVal, 10))) {
+	if (storageVal) {
 		const userId = parseInt(storageVal, 10);
 		if (isFinite(userId)) return userId;
 	}

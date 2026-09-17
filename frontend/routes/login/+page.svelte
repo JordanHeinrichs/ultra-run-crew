@@ -2,6 +2,8 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { apiFetch } from '$lib/api';
+	import type { UserResponse } from '$lib/types/UserResponse';
+  import { user } from '$lib/user.svelte';
 
   let email = $state('');
   let password = $state('');
@@ -20,6 +22,8 @@
       });
 
       if (response.status === 200) {
+        const body: UserResponse = await response.json();
+        user.login(body.id);
         goto(resolve('/races'));
       } else {
         errorMessage = 'Login failed. Please check your credentials.';

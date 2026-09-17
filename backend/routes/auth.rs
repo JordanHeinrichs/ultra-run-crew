@@ -28,7 +28,8 @@ pub struct RegisterRequest {
     pub password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ts_rs::TS)]
+#[ts(export)]
 pub struct UserResponse {
     pub id: i64,
     pub email: String,

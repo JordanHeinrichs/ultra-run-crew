@@ -62,9 +62,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         csrf_config,
     };
 
-    let protected_routes = Router::new().nest("/races", routes::races::router()).layer(
-        middleware::from_fn_with_state(state.clone(), auth_middleware),
-    );
+    let protected_routes = Router::new()
+        .nest("/races", routes::races::router())
+        .nest("/users", routes::users::router())
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
 
     let app = Router::new()
         .nest("/api/auth", routes::auth::router())

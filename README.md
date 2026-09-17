@@ -95,7 +95,7 @@ The application uses an **Offline-First / Stale-While-Reconnecting** paradigm. T
 
 ### Frontend (IndexedDB Schema)
 
-- `waypoints`: `id`, `race_id`, `name`, `distance_mile`, `elevation_gain_ft`, `is_crew_accessible`
+- `waypoints`: `id`, `race_id`, `name`, `distance`, `elevation_gain`, `is_crew_accessible`
 - `runner_logs`: `id`, `waypoint_id`, `time_in`, `time_out`, `notes`, `synced`
 - `sync_queue`: `id`, `payload`, `timestamp`
 

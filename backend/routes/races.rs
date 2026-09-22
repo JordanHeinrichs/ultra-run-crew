@@ -29,11 +29,6 @@ pub struct RaceListRace {
 }
 pub type RacesListResponse = Vec<RaceListRace>;
 
-#[derive(Serialize)]
-pub struct RaceResponse {
-    pub race: Race,
-}
-
 #[derive(Deserialize)]
 pub struct CreateRacePayload {
     pub name: String,
@@ -71,7 +66,7 @@ async fn race_create(
     user: AuthenticatedUser,
     State(state): State<AppState>,
     Json(payload): Json<CreateRacePayload>,
-) -> Result<Json<RaceResponse>, AppError> {
+) -> Result<Json<Race>, AppError> {
     let race = sqlx::query_as!(
         Race,
         r#"
@@ -86,14 +81,14 @@ async fn race_create(
     .fetch_one(&state.db)
     .await?;
 
-    Ok(Json(RaceResponse { race }))
+    Ok(Json(race))
 }
 
 async fn race_get(
     user: AuthenticatedUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
-) -> Result<Json<RaceResponse>, AppError> {
+) -> Result<Json<Race>, AppError> {
     let race = sqlx::query_as!(
         Race,
         r#"
@@ -108,7 +103,7 @@ async fn race_get(
     .await?
     .ok_or_else(|| AppError::NotFound("Race not found".into()))?;
 
-    Ok(Json(RaceResponse { race }))
+    Ok(Json(race))
 }
 
 async fn race_edit(
@@ -116,7 +111,7 @@ async fn race_edit(
     State(state): State<AppState>,
     Path(id): Path<i64>,
     Json(payload): Json<UpdateRacePayload>,
-) -> Result<Json<RaceResponse>, AppError> {
+) -> Result<Json<Race>, AppError> {
     let race = sqlx::query_as!(
         Race,
         r#"
@@ -137,15 +132,14 @@ async fn race_edit(
     .await?
     .ok_or_else(|| AppError::NotFound("Race not found or already deleted".into()))?;
 
-    Ok(Json(RaceResponse { race }))
+    Ok(Json(race))
 }
 
 async fn race_delete(
     user: AuthenticatedUser,
     State(state): State<AppState>,
     Path(id): Path<i64>,
-) -> Result<Json<RaceResponse>, AppError> {
-    // Perform soft delete using the is_deleted flag
+) -> Result<Json<Race>, AppError> {
     let race = sqlx::query_as!(
         Race,
         r#"
@@ -161,5 +155,5 @@ async fn race_delete(
     .await?
     .ok_or_else(|| AppError::NotFound("Race not found".into()))?;
 
-    Ok(Json(RaceResponse { race }))
+    Ok(Json(race))
 }

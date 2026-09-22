@@ -85,6 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = app.layer(
         CorsLayer::new()
             .allow_origin("http://127.0.0.1:5173".parse::<HeaderValue>().unwrap())
+            .allow_origin("http://localhost:5173".parse::<HeaderValue>().unwrap())
             .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
             .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE])
             .allow_credentials(true),

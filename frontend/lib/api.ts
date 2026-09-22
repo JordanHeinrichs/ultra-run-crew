@@ -1,11 +1,8 @@
 import { resolve } from '$app/paths';
 import { page } from '$app/state';
-import { dev } from '$app/environment';
 import { goto } from '$app/navigation';
 
-export async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-	const url = dev ? `http://127.0.0.1:3000${input}` : input;
-
+export async function apiFetch(url: RequestInfo | URL, init?: RequestInit): Promise<Response> {
 	console.info(`Fetching ${url}`);
 	const response = await fetch(url, {
 		...init,

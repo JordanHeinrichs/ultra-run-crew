@@ -22,9 +22,6 @@ pub enum AppError {
 
     #[error("Not Found")]
     NotFound(String),
-
-    #[error("Internal server error")]
-    Internal,
 }
 
 #[derive(Serialize)]
@@ -56,10 +53,6 @@ impl IntoResponse for AppError {
                 "Invalid username or password".to_string(),
             ),
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
-            AppError::Internal => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Something went wrong internally.".to_string(),
-            ),
         };
 
         // 2. Wrap in axum::Json and return with the HTTP status code

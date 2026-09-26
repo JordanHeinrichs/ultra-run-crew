@@ -1,9 +1,8 @@
 import type { RaceListRace } from '$lib/types/RaceListRace';
-import { apiFetch } from '$lib/api';
 import { error } from '@sveltejs/kit';
 
-export const load = async () => {
-	const res = await apiFetch('/api/races');
+export const load = async ({ fetch }) => {
+	const res = await fetch('/api/races');
 	if (!res.ok) {
 		error(res.status, {
 			message: 'Failed to load races from server'

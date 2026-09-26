@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import MessageSquareWarningIcon from '@lucide/svelte/icons/message-square-warning';
 
 	let name = $state('');
 	let email = $state('');
@@ -39,15 +41,7 @@
 			href={resolve('/')}
 			class="btn gap-1 btn-ghost text-sm font-semibold btn-sm hover:bg-base-300"
 		>
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				class="h-4 w-4"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-			</svg>
+			<ChevronLeftIcon size="18"></ChevronLeftIcon>
 			<span>Back</span>
 		</a>
 		<span class="font-mono text-xs font-semibold tracking-widest text-primary uppercase">
@@ -69,19 +63,7 @@
 
 				{#if errorMessage}
 					<div role="alert" class="alert py-2 text-sm alert-error">
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							class="h-5 w-5 shrink-0 stroke-current"
-							fill="none"
-							viewBox="0 0 24 24"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
+						<MessageSquareWarningIcon size="20"></MessageSquareWarningIcon>
 						<span>{errorMessage}</span>
 					</div>
 				{/if}

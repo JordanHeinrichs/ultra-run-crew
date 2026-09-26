@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { PageData } from './$types';
+	import PlusIcon from '@lucide/svelte/icons/plus';
+	import SearchIcon from '@lucide/svelte/icons/search';
 
 	let searchQuery = $state('');
 
@@ -23,15 +25,7 @@
 	</div>
 
 	<a href={resolve('/races/new')} class="btn gap-2 uppercase btn-primary">
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			class="h-5 w-5"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-		>
-			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-		</svg>
+		<PlusIcon size="20"></PlusIcon>
 		Add Race
 	</a>
 </div>
@@ -44,20 +38,7 @@
 			bind:value={searchQuery}
 			class="input-bordered input w-full pr-10"
 		/>
-		<svg
-			xmlns="http://www.w3.org/2000/svg"
-			class="absolute top-3 right-3 h-5 w-5 text-base-content/40"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				stroke-width="2"
-				d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-			/>
-		</svg>
+		<SearchIcon class="absolute top-3 right-3 h-5 w-5 text-base-content/40" size="20"></SearchIcon>
 	</div>
 </div>
 

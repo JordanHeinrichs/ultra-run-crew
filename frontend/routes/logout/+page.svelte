@@ -6,7 +6,12 @@
 
 	onMount(async () => {
 		try {
-			await fetch('/api/logout', { method: 'POST' });
+			await fetch('/api/logout', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
 		} catch (err) {
 			console.error('Logout error:', err);
 		} finally {

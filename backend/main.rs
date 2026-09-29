@@ -13,7 +13,7 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod auth_middleware;
-mod db;
+mod db_models;
 mod errors;
 mod routes;
 
@@ -65,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let protected_routes = Router::new()
         .nest("/races", routes::races::router())
         .nest("/users", routes::users::router())
+        .nest("/aid-stations", routes::aid_stations::router())
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,

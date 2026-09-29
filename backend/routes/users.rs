@@ -5,7 +5,7 @@ use axum::{
 };
 
 use crate::{AppState, errors::AppError};
-use crate::{auth_middleware::AuthenticatedUser, db::User};
+use crate::{auth_middleware::AuthenticatedUser, db_models::User};
 
 pub fn router() -> Router<AppState> {
     Router::new().route("/{id}", get(user_get))

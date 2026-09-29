@@ -47,7 +47,7 @@
 			<div class="stat-figure text-secondary">
 				<UserIcon size="30"></UserIcon>
 			</div>
-			<div class="stat-title">Runner Profile</div>
+			<div class="stat-title">Runner</div>
 			<!-- TODO: Link to runner pages -->
 			<a href={resolve(`/`)} class="stat-value text-2xl">{data.runner.name}</a>
 		</div>

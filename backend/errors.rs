@@ -20,6 +20,12 @@ pub enum AppError {
     #[error("Login Error")]
     LoginError(),
 
+    #[error("Internal Server Error")]
+    InternalServerError(),
+
+    #[error("Bad Request")]
+    BadRequest(String),
+
     #[error("Not Found")]
     NotFound(String),
 }
@@ -52,6 +58,12 @@ impl IntoResponse for AppError {
                 StatusCode::UNAUTHORIZED,
                 "Invalid username or password".to_string(),
             ),
+            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            AppError::InternalServerError() => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Something went wrong".to_string(),
+            ),
+
             AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg),
         };
 

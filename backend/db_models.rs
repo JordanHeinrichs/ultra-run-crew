@@ -74,7 +74,7 @@ pub struct AidStationChecklistItem {
 #[derive(sqlx::FromRow, Debug, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
-pub struct Route {
+pub struct Course {
     pub id: i64,
     pub race_id: i64,
     pub total_distance_km: f64,
@@ -90,7 +90,7 @@ pub struct Route {
 #[derive(sqlx::FromRow, Debug, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
-pub struct RouteSegment {
+pub struct CourseSegment {
     pub id: i64,
     pub route_id: i64,
     pub km: f64,

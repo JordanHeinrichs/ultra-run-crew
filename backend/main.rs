@@ -66,6 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nest("/races", routes::races::router())
         .nest("/users", routes::users::router())
         .nest("/aid-stations", routes::aid_stations::router())
+        .nest("/courses", routes::courses::router())
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,

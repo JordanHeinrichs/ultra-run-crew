@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS aid_station_checklist_items (
     ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS routes (
+CREATE TABLE IF NOT EXISTS courses (
   id INTEGER PRIMARY KEY NOT NULL,
   race_id INTEGER NOT NULL,
   total_distance_km REAL NOT NULL,
@@ -41,13 +41,13 @@ CREATE TABLE IF NOT EXISTS routes (
     ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS route_segments (
+CREATE TABLE IF NOT EXISTS course_segments (
   id INTEGER PRIMARY KEY NOT NULL,
-  route_id INTEGER NOT NULL,
+  course_id INTEGER NOT NULL,
   km REAL NOT NULL,
   gain_m REAL NOT NULL,
   loss_m REAL NOT NULL,
 
-  FOREIGN KEY (route_id) REFERENCES routes (id)
+  FOREIGN KEY (course_id) REFERENCES courses (id)
     ON DELETE CASCADE
 );

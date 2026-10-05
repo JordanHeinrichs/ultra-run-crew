@@ -15,6 +15,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod auth_middleware;
 mod db_models;
 mod errors;
+mod helpers;
 mod routes;
 
 #[allow(dead_code)]

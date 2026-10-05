@@ -5,6 +5,7 @@ use axum::{
 };
 use serde::Deserialize;
 
+use crate::helpers::gpx_parser;
 use crate::{
     AppState,
     db_models::Course,

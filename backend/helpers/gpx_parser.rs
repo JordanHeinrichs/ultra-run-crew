@@ -1,6 +1,6 @@
 use geo_types::Point;
 use gpx::read;
-use gpx::{Gpx, Track, TrackSegment, Waypoint};
+use gpx::{Gpx, Track, Waypoint};
 
 use crate::errors::AppError::{self, BadRequest};
 
@@ -49,18 +49,43 @@ pub fn generate_segments_from_gpx(file: Vec<u8>) -> Result<Vec<GpxSegment>, AppE
             _ => 0.0,
         };
 
-        if current_dist_m + step_distance <= SEGMENT_LENGTH {
-            current_dist_m = current_dist_m + step_distance;
-            if ele_diff > 0.0 {
-                current_gain_m = current_gain_m + ele_diff;
+        let mut remaining_pt_distance = step_distance;
+        while remaining_pt_distance != 0.0 {
+            if current_dist_m + remaining_pt_distance <= SEGMENT_LENGTH {
+                current_dist_m = current_dist_m + remaining_pt_distance;
+                if ele_diff > 0.0 {
+                    current_gain_m = current_gain_m + ele_diff;
+                } else {
+                    current_loss_m = current_loss_m + ele_diff.abs();
+                }
+                remaining_pt_distance = 0.0;
             } else {
-                current_loss_m = current_loss_m + ele_diff.abs();
+                remaining_pt_distance = current_dist_m + step_distance - SEGMENT_LENGTH;
+
+                let this_step_distance = remaining_pt_distance % SEGMENT_LENGTH;
+                let prorate_amount = this_step_distance / step_distance;
+                if ele_diff > 0.0 {
+                    current_gain_m = current_gain_m + ele_diff * prorate_amount;
+                } else {
+                    current_loss_m = current_loss_m + (ele_diff * prorate_amount).abs();
+                }
+
+                segments.push(GpxSegment {
+                    km: (segments.len() as f64) * SEGMENT_LENGTH / 1000.0,
+                    gain_m: current_gain_m,
+                    loss_m: current_loss_m,
+                });
+                current_dist_m = 0.0;
+                current_gain_m = 0.0;
+                current_loss_m = 0.0;
             }
         }
-
-        // let pos1
     }
-
+    segments.push(GpxSegment {
+        km: ((segments.len() as f64) * SEGMENT_LENGTH + current_dist_m) / 1000.0,
+        gain_m: current_gain_m,
+        loss_m: current_loss_m,
+    });
     Ok(segments)
 }
 

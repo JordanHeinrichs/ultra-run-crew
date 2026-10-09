@@ -3,15 +3,15 @@ use axum::{
     extract::{Multipart, Path, State},
     routing::post,
 };
-use serde::Deserialize;
+use sqlx::{QueryBuilder, Sqlite};
 
-use crate::helpers::gpx_parser;
+use crate::auth_middleware::AuthenticatedUser;
+use crate::helpers::gpx_parser::generate_segments_from_gpx;
 use crate::{
     AppState,
     db_models::Course,
     errors::AppError::{self, BadRequest, InternalServerError, NotFound},
 };
-use crate::{auth_middleware::AuthenticatedUser, db_models::AidStation};
 
 pub fn router() -> Router<AppState> {
     Router::new().route("/{race_id}/upload", post(course_upload))
@@ -58,14 +58,16 @@ async fn course_upload(
         }
     }
 
-    let bytes = file_bytes.ok_or(BadRequest("Failed to get multipart file".into()))?;
-
     println!(
         "Processing GPX for race_id: {}, filename: {:?}",
         race_id, file_name
     );
 
-    // TODO: Do the GPX processing function and produce the following information and save all the segments
+    let bytes = file_bytes.ok_or(BadRequest("Failed to get multipart file".into()))?;
+    let segments = generate_segments_from_gpx(bytes)?;
+    if segments.len() == 0 {
+        return Err(BadRequest("Unable to parse distance from GPX".into()));
+    }
 
     let course = sqlx::query_as!(
         Course,
@@ -75,13 +77,26 @@ async fn course_upload(
         RETURNING id as "id!", race_id as "race_id!", total_distance_km as "total_distance_km!", total_elevation_gain_m as "total_elevation_gain_m!",  total_elevation_loss_m as "total_elevation_loss_m!", is_deleted as "is_deleted!", created_at as "created_at!", updated_at as "updated_at!"
         "#,
         race_id,
-        0,
-        0,
-        0,
+        segments.last().unwrap().km,
+        segments.iter().map(|s| s.gain_m).sum::<f64>(),
+        segments.iter().map(|s| s.loss_m).sum::<f64>(),
     )
     .fetch_optional(&state.db)
     .await?
     .ok_or_else(|| AppError::InternalServerError())?;
+
+    let mut query_builder: QueryBuilder<Sqlite> =
+        QueryBuilder::new("INSERT INTO course_segments (course_id, km, gain_m, loss_m) ");
+
+    query_builder.push_values(segments, |mut b, segment| {
+        b.push_bind(course.id)
+            .push_bind(segment.km)
+            .push_bind(segment.gain_m)
+            .push_bind(segment.loss_m);
+    });
+
+    let query = query_builder.build();
+    query.execute(&state.db).await?;
 
     Ok(Json(course))
 }

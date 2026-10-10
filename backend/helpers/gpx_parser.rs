@@ -6,6 +6,7 @@ use crate::errors::AppError::{self, BadRequest};
 
 pub const SEGMENT_LENGTH: f64 = 500.0;
 
+#[derive(Debug)]
 pub struct GpxSegment {
     pub km: f64,
     pub gain_m: f64,
@@ -28,7 +29,10 @@ pub fn generate_segments_from_gpx(file: Vec<u8>) -> Result<Vec<GpxSegment>, AppE
     if points.len() < 2 {
         return Ok(Vec::new());
     }
+    Ok(calculate_segments(&points))
+}
 
+fn calculate_segments(points: &Vec<&Waypoint>) -> Vec<GpxSegment> {
     let mut segments = Vec::new();
 
     let mut current_dist_m = 0.0;
@@ -49,54 +53,52 @@ pub fn generate_segments_from_gpx(file: Vec<u8>) -> Result<Vec<GpxSegment>, AppE
             _ => 0.0,
         };
 
-        let mut remaining_pt_distance = step_distance;
-        while remaining_pt_distance != 0.0 {
-            if current_dist_m + remaining_pt_distance <= SEGMENT_LENGTH {
-                current_dist_m = current_dist_m + remaining_pt_distance;
-                if ele_diff > 0.0 {
-                    current_gain_m = current_gain_m + ele_diff;
-                } else {
-                    current_loss_m = current_loss_m + ele_diff.abs();
-                }
-                remaining_pt_distance = 0.0;
+        let mut remaining_step_m = step_distance;
+        while current_dist_m + remaining_step_m >= SEGMENT_LENGTH {
+            let needed_for_segment_m = SEGMENT_LENGTH - current_dist_m;
+            let prorate = needed_for_segment_m / step_distance;
+
+            if ele_diff > 0.0 {
+                current_gain_m += ele_diff * prorate;
             } else {
-                remaining_pt_distance = current_dist_m + step_distance - SEGMENT_LENGTH;
+                current_loss_m += (ele_diff * prorate).abs();
+            }
 
-                let this_step_distance = remaining_pt_distance % SEGMENT_LENGTH;
-                let prorate_amount = this_step_distance / step_distance;
-                if ele_diff > 0.0 {
-                    current_gain_m = current_gain_m + ele_diff * prorate_amount;
-                } else {
-                    current_loss_m = current_loss_m + (ele_diff * prorate_amount).abs();
-                }
+            segments.push(GpxSegment {
+                km: (segments.len() + 1) as f64 * SEGMENT_LENGTH / 1000.0,
+                gain_m: current_gain_m,
+                loss_m: current_loss_m,
+            });
+            remaining_step_m -= needed_for_segment_m;
+            current_dist_m = 0.0;
+            current_gain_m = 0.0;
+            current_loss_m = 0.0;
+        }
 
-                segments.push(GpxSegment {
-                    km: (segments.len() as f64) * SEGMENT_LENGTH / 1000.0,
-                    gain_m: current_gain_m,
-                    loss_m: current_loss_m,
-                });
-                current_dist_m = 0.0;
-                current_gain_m = 0.0;
-                current_loss_m = 0.0;
+        if remaining_step_m > 0.0 {
+            let prorate = remaining_step_m / step_distance;
+            current_dist_m += remaining_step_m;
+            if ele_diff > 0.0 {
+                current_gain_m += ele_diff * prorate;
+            } else {
+                current_loss_m += (ele_diff * prorate).abs();
             }
         }
     }
     segments.push(GpxSegment {
-        km: ((segments.len() as f64) * SEGMENT_LENGTH + current_dist_m) / 1000.0,
+        km: (segments.len() as f64 * SEGMENT_LENGTH + current_dist_m) / 1000.0,
         gain_m: current_gain_m,
         loss_m: current_loss_m,
     });
-    Ok(segments)
+    segments
 }
 
 fn haversine_m(p1: &Point<f64>, p2: &Point<f64>) -> f64 {
     let earth_radius_m = 6_371_000.0;
-    println!("{:?}, {:?}", p1, p2);
 
     let p1_rad = p1.to_radians();
     let p2_rad = p2.to_radians();
     let d = p2_rad - p1_rad;
-    println!("{:?}, {:?}, {:?}", p1_rad, p2_rad, d);
 
     let a = ((d.y() / 2.0).sin().powi(2)
         + p1_rad.y().cos() * p2_rad.y().cos() * (d.x() / 2.0).sin().powi(2))
@@ -110,6 +112,8 @@ fn haversine_m(p1: &Point<f64>, p2: &Point<f64>) -> f64 {
 mod tests {
     use super::*;
     use approx::assert_abs_diff_eq;
+    use geo_types::Point;
+    use gpx::Waypoint;
 
     #[test]
     fn test_same_point_returns_zero() {
@@ -172,5 +176,37 @@ mod tests {
 
         // Moving 0.02 degrees across the 180° meridian at the equator is ~2,224 meters
         assert_abs_diff_eq!(dist, 2_224.0, epsilon = 10.0);
+    }
+
+    fn make_waypoint(lon: f64, lat: f64, elevation_m: f64) -> Waypoint {
+        let mut wp = Waypoint::new(Point::new(lon, lat));
+        wp.elevation = Some(elevation_m);
+        wp
+    }
+
+    #[test]
+    fn test_calculate_segments_single_step() {
+        let wp1 = make_waypoint(-0.1278, 51.5074, 100.0);
+        let wp2 = make_waypoint(-0.1200, 51.5074, 150.0);
+        let wp3 = make_waypoint(-0.1150, 51.5074, 10.0);
+
+        let waypoints = vec![&wp1, &wp2, &wp3];
+        let segments = calculate_segments(&waypoints);
+
+        assert_eq!(segments.len(), 2);
+
+        assert_abs_diff_eq!(segments[0].km, 0.5, epsilon = 0.001);
+        assert_abs_diff_eq!(segments[1].km, 0.8859, epsilon = 0.001);
+
+        assert_abs_diff_eq!(
+            segments.iter().map(|s| s.gain_m).sum::<f64>(),
+            50.0,
+            epsilon = 1.0
+        );
+        assert_abs_diff_eq!(
+            segments.iter().map(|s| s.loss_m).sum::<f64>(),
+            140.0,
+            epsilon = 1.0
+        );
     }
 }

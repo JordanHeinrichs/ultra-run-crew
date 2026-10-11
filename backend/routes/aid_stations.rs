@@ -6,7 +6,7 @@ use axum::{
 use serde::Deserialize;
 
 use crate::{AppState, errors::AppError};
-use crate::{auth_middleware::AuthenticatedUser, db_models::AidStation};
+use crate::{auth_middleware::AuthenticatedUser, db::models::AidStation};
 
 pub fn router() -> Router<AppState> {
     Router::new()

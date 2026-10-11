@@ -1,20 +1,26 @@
 use axum::{
     Json, Router,
     extract::{Multipart, Path, State},
-    routing::post,
+    routing::{get, post},
 };
+use serde::{Deserialize, Serialize};
 use sqlx::{QueryBuilder, Sqlite};
 
-use crate::auth_middleware::AuthenticatedUser;
-use crate::helpers::gpx_parser::generate_segments_from_gpx;
 use crate::{
     AppState,
-    db_models::Course,
-    errors::AppError::{self, BadRequest, InternalServerError, NotFound},
+    db::models::Course,
+    errors::AppError::{self, BadRequest, InternalServerError},
 };
+use crate::{auth_middleware::AuthenticatedUser, db::sqlite_repository::SqliteRepository};
+use crate::{db::race_repository::RaceRepository, helpers::gpx_parser::generate_segments_from_gpx};
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/{race_id}/upload", post(course_upload))
+    Router::new()
+        .route("/{race_id}/upload", post(course_upload))
+        .route(
+            "/{race_id}/{course_id}/predict",
+            get(get_course_predictions),
+        )
 }
 
 async fn course_upload(
@@ -23,23 +29,8 @@ async fn course_upload(
     Path(race_id): Path<i64>,
     mut multipart: Multipart,
 ) -> Result<Json<Course>, AppError> {
-    let has_race_access = sqlx::query_scalar!(
-        r#"
-        SELECT EXISTS (
-            SELECT 1 FROM races r
-            WHERE r.id = ? AND r.runner_id = ? AND r.is_deleted = FALSE
-        ) as "exists!: bool"
-        "#,
-        race_id,
-        user.user_id
-    )
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| AppError::NotFound("Race not found".into()))?;
-
-    if !has_race_access {
-        return Err(NotFound("Race not found".into()));
-    }
+    let repository = SqliteRepository::new(state.db.clone(), user.clone());
+    let _race = repository.find_race_id(race_id).await?;
 
     let mut file_bytes: Option<Vec<u8>> = None;
     let mut file_name: Option<String> = None;
@@ -99,4 +90,22 @@ async fn course_upload(
     query.execute(&state.db).await?;
 
     Ok(Json(course))
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CoursePredictions {
+    pub aid_station_id: i64,
+    pub duration_s: i64,
+}
+
+async fn get_course_predictions(
+    user: AuthenticatedUser,
+    State(state): State<AppState>,
+    Path((race_id, course_id)): Path<(i64, i64)>,
+) -> Result<Json<Vec<CoursePredictions>>, AppError> {
+    let repository = SqliteRepository::new(state.db.clone(), user.clone());
+    let _race = repository.find_race_id(race_id).await?;
+
+    println!("{}", course_id);
+    Ok(Json(vec![]))
 }

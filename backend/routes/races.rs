@@ -7,8 +7,11 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{AppState, errors::AppError};
-use crate::{auth_middleware::AuthenticatedUser, db_models::Race};
+use crate::{
+    AppState, db::race_repository::RaceRepository, db::sqlite_repository::SqliteRepository,
+    errors::AppError,
+};
+use crate::{auth_middleware::AuthenticatedUser, db::models::Race};
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -103,19 +106,8 @@ async fn race_get(
     State(state): State<AppState>,
     Path(id): Path<i64>,
 ) -> Result<Json<Race>, AppError> {
-    let race = sqlx::query_as!(
-        Race,
-        r#"
-        SELECT id, runner_id, name, event_date, is_deleted, distance_km, goal_duration, pacing_strategy, default_aid_station_duration, created_at, updated_at
-        FROM races
-        WHERE id = ? AND runner_id = ? AND is_deleted = FALSE
-        "#,
-        id,
-        user.user_id
-    )
-    .fetch_one(&state.db)
-    .await?;
-
+    let repository = SqliteRepository::new(state.db, user);
+    let race = repository.find_race_id(id).await?;
     Ok(Json(race))
 }
 

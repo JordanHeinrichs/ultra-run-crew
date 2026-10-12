@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, State},
     routing::get,
 };
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -52,6 +52,7 @@ pub struct UpdateRacePayload {
     pub goal_duration: Option<f64>,
     pub pacing_strategy: Option<f64>,
     pub default_aid_station_duration: Option<f64>,
+    pub race_start_time: Option<NaiveDateTime>,
 }
 
 async fn races_list(
@@ -85,7 +86,7 @@ async fn race_create(
         r#"
         INSERT INTO races (runner_id, name, event_date, distance_km, goal_duration, pacing_strategy, default_aid_station_duration, is_deleted, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        RETURNING id as "id!", runner_id as "runner_id!", name as "name!", event_date as "event_date!", is_deleted as "is_deleted!", created_at as "created_at!", updated_at as "updated_at!", distance_km as "distance_km!", goal_duration as "goal_duration!", pacing_strategy as "pacing_strategy!", default_aid_station_duration as "default_aid_station_duration!"
+        RETURNING id as "id!", runner_id as "runner_id!", name as "name!", event_date as "event_date!", is_deleted as "is_deleted!", created_at as "created_at!", updated_at as "updated_at!", distance_km as "distance_km!", goal_duration as "goal_duration!", pacing_strategy as "pacing_strategy!", default_aid_station_duration as "default_aid_station_duration!", race_start_time as "race_start_time!"
         "#,
         user.user_id,
         payload.name,
@@ -128,9 +129,10 @@ async fn race_edit(
             goal_duration = COALESCE(?, goal_duration),
             pacing_strategy = COALESCE(?, pacing_strategy),
             default_aid_station_duration = COALESCE(?, default_aid_station_duration),
+            race_start_time = COALESCE(?, race_start_time),
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND runner_id = ? AND is_deleted = FALSE
-        RETURNING id, runner_id, name, event_date, is_deleted, distance_km, goal_duration, pacing_strategy, default_aid_station_duration, created_at, updated_at
+        RETURNING id, runner_id, name, event_date, is_deleted, distance_km, goal_duration, pacing_strategy, default_aid_station_duration, race_start_time, created_at, updated_at
         "#,
         payload.name,
         payload.event_date,
@@ -138,6 +140,7 @@ async fn race_edit(
         payload.goal_duration,
         payload.pacing_strategy,
         payload.default_aid_station_duration,
+        payload.race_start_time,
         id,
         user.user_id,
     )
@@ -159,7 +162,7 @@ async fn race_delete(
         UPDATE races
         SET is_deleted = TRUE, updated_at = CURRENT_TIMESTAMP
         WHERE id = ? AND runner_id = ? AND is_deleted = FALSE
-        RETURNING id, runner_id, name, event_date, is_deleted, distance_km, goal_duration, pacing_strategy, default_aid_station_duration, created_at, updated_at
+        RETURNING id, runner_id, name, event_date, is_deleted, distance_km, goal_duration, pacing_strategy, default_aid_station_duration, race_start_time, created_at, updated_at
         "#,
         id,
         user.user_id,

@@ -30,6 +30,8 @@ pub struct Race {
     pub distance_km: f64,
     pub goal_duration: Option<f64>,
     pub pacing_strategy: Option<f64>, // [-1, 1] for negative to positive pacing
+    #[ts(type = "string?")]
+    pub race_start_time: Option<NaiveDateTime>,
     pub default_aid_station_duration: Option<f64>,
     pub is_deleted: bool,
     #[ts(type = "string")]

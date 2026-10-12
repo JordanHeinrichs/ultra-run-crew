@@ -11,7 +11,7 @@ impl RaceRepository for SqliteRepository {
         sqlx::query_as!(
             Race,
             r#"
-            SELECT id, runner_id, name, event_date, is_deleted, distance_km, goal_duration, pacing_strategy, default_aid_station_duration, created_at, updated_at
+            SELECT id, runner_id, name, event_date, is_deleted, distance_km, goal_duration, pacing_strategy, race_start_time, default_aid_station_duration, created_at, updated_at
             FROM races
             WHERE id = ? AND runner_id = ? AND is_deleted = FALSE
             "#,

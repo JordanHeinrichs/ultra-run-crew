@@ -101,9 +101,9 @@ async fn get_course_predictions(
     Path((race_id, course_id)): Path<(i64, i64)>,
 ) -> Result<Json<Vec<CoursePredictions>>, AppError> {
     let repository = SqliteRepository::new(state.db, user);
-    let _race = repository.find_race(race_id).await?;
+    let race = repository.find_race(race_id).await?;
     let aid_stations = repository.list_aid_stations(race_id).await?;
     let course = repository.find_course(course_id).await?;
-    let predictions = calculate_predictions(&course, &aid_stations)?;
+    let predictions = calculate_predictions(&race, &course, &aid_stations)?;
     Ok(Json(predictions))
 }

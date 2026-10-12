@@ -7,10 +7,9 @@ CREATE TABLE IF NOT EXISTS races (
   goal_duration REAL,
   pacing_strategy REAL,
   default_aid_station_duration REAL,
+  race_start_time DATETIME,
   is_deleted BOOLEAN DEFAULT FALSE NOT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-
-  FOREIGN KEY (runner_id) REFERENCES users (id)
-    ON DELETE CASCADE
+  FOREIGN KEY (runner_id) REFERENCES users (id) ON DELETE CASCADE
 );

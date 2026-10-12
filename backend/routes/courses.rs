@@ -3,13 +3,16 @@ use axum::{
     extract::{Multipart, Path, State},
     routing::{get, post},
 };
-use serde::{Deserialize, Serialize};
 use sqlx::{QueryBuilder, Sqlite};
 
 use crate::{
     AppState,
-    db::models::Course,
+    db::{
+        aid_station_repository::AidStationRepository, course_repository::CourseRepository,
+        models::Course,
+    },
     errors::AppError::{self, BadRequest, InternalServerError},
+    helpers::predictor::{CoursePredictions, calculate_predictions},
 };
 use crate::{auth_middleware::AuthenticatedUser, db::sqlite_repository::SqliteRepository};
 use crate::{db::race_repository::RaceRepository, helpers::gpx_parser::generate_segments_from_gpx};
@@ -30,7 +33,7 @@ async fn course_upload(
     mut multipart: Multipart,
 ) -> Result<Json<Course>, AppError> {
     let repository = SqliteRepository::new(state.db.clone(), user.clone());
-    let _race = repository.find_race_id(race_id).await?;
+    let _race = repository.find_race(race_id).await?;
 
     let mut file_bytes: Option<Vec<u8>> = None;
     let mut file_name: Option<String> = None;
@@ -92,20 +95,15 @@ async fn course_upload(
     Ok(Json(course))
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CoursePredictions {
-    pub aid_station_id: i64,
-    pub duration_s: i64,
-}
-
 async fn get_course_predictions(
     user: AuthenticatedUser,
     State(state): State<AppState>,
     Path((race_id, course_id)): Path<(i64, i64)>,
 ) -> Result<Json<Vec<CoursePredictions>>, AppError> {
-    let repository = SqliteRepository::new(state.db.clone(), user.clone());
-    let _race = repository.find_race_id(race_id).await?;
-
-    println!("{}", course_id);
-    Ok(Json(vec![]))
+    let repository = SqliteRepository::new(state.db, user);
+    let _race = repository.find_race(race_id).await?;
+    let aid_stations = repository.list_aid_stations(race_id).await?;
+    let course = repository.find_course(course_id).await?;
+    let predictions = calculate_predictions(&course, &aid_stations)?;
+    Ok(Json(predictions))
 }

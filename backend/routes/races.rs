@@ -107,7 +107,7 @@ async fn race_get(
     Path(id): Path<i64>,
 ) -> Result<Json<Race>, AppError> {
     let repository = SqliteRepository::new(state.db, user);
-    let race = repository.find_race_id(id).await?;
+    let race = repository.find_race(id).await?;
     Ok(Json(race))
 }
 

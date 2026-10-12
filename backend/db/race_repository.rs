@@ -3,11 +3,11 @@ use crate::db::sqlite_repository::SqliteRepository;
 use crate::errors::AppError::{self, NotFound};
 
 pub trait RaceRepository {
-    async fn find_race_id(&self, id: i64) -> Result<Race, AppError>;
+    async fn find_race(&self, id: i64) -> Result<Race, AppError>;
 }
 
 impl RaceRepository for SqliteRepository {
-    async fn find_race_id(&self, id: i64) -> Result<Race, AppError> {
+    async fn find_race(&self, id: i64) -> Result<Race, AppError> {
         sqlx::query_as!(
             Race,
             r#"

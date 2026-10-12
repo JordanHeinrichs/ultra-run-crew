@@ -5,14 +5,24 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::{AppState, errors::AppError};
+use crate::{
+    AppState,
+    db::{
+        aid_station_repository::AidStationRepository, race_repository::RaceRepository,
+        sqlite_repository::SqliteRepository,
+    },
+    errors::AppError,
+};
 use crate::{auth_middleware::AuthenticatedUser, db::models::AidStation};
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/", get(aid_stations_list).post(aid_station_create))
         .route(
-            "/{id}",
+            "/{race_id}",
+            get(aid_stations_list).post(aid_station_create),
+        )
+        .route(
+            "/{race_id}/{id}",
             get(aid_station_get)
                 .put(aid_station_edit)
                 .delete(aid_station_delete),
@@ -41,21 +51,12 @@ pub struct UpdateAidStationPayload {
 async fn aid_stations_list(
     user: AuthenticatedUser,
     State(state): State<AppState>,
+    Path(race_id): Path<i64>,
 ) -> Result<Json<Vec<AidStation>>, AppError> {
-    let aid_stations = sqlx::query_as!(
-        AidStation,
-        r#"
-        SELECT a.id, a.race_id, a.name, a.distance_km, a.is_crew_allowed, a.has_drop_bag, a.is_deleted, a.arrival_timestamp, a.created_at, a.updated_at
-        FROM aid_stations a
-        JOIN races r ON a.race_id = r.id
-        WHERE r.runner_id = ? AND a.is_deleted = FALSE
-        ORDER BY a.distance_km ASC
-        "#,
-        user.user_id
-    )
-    .fetch_all(&state.db)
-    .await?;
-
+    let repository = SqliteRepository::new(state.db, user);
+    // Validate they have permissions to get race
+    let _race = repository.find_race(race_id).await?;
+    let aid_stations = repository.list_aid_stations(race_id).await?;
     Ok(Json(aid_stations))
 }
 
@@ -91,29 +92,19 @@ async fn aid_station_create(
 async fn aid_station_get(
     user: AuthenticatedUser,
     State(state): State<AppState>,
-    Path(id): Path<i64>,
+    Path((race_id, id)): Path<(i64, i64)>,
 ) -> Result<Json<AidStation>, AppError> {
-    let aid_station = sqlx::query_as!(
-        AidStation,
-        r#"
-        SELECT a.id, a.race_id, a.name, a.distance_km, a.is_crew_allowed, a.has_drop_bag, a.is_deleted, a.arrival_timestamp, a.created_at, a.updated_at
-        FROM aid_stations a
-        JOIN races r ON a.race_id = r.id
-        WHERE a.id = ? AND r.runner_id = ? AND a.is_deleted = FALSE
-        "#,
-        id,
-        user.user_id
-    )
-    .fetch_one(&state.db)
-    .await?;
-
+    let repository = SqliteRepository::new(state.db, user);
+    // Validate they have permissions to get race
+    let _race = repository.find_race(race_id).await?;
+    let aid_station = repository.find_aid_station(id).await?;
     Ok(Json(aid_station))
 }
 
 async fn aid_station_edit(
     user: AuthenticatedUser,
     State(state): State<AppState>,
-    Path(id): Path<i64>,
+    Path((race_id, id)): Path<(i64, i64)>,
     Json(payload): Json<UpdateAidStationPayload>,
 ) -> Result<Json<AidStation>, AppError> {
     let aid_station = sqlx::query_as!(
@@ -148,7 +139,7 @@ async fn aid_station_edit(
 async fn aid_station_delete(
     user: AuthenticatedUser,
     State(state): State<AppState>,
-    Path(id): Path<i64>,
+    Path((race_id, id)): Path<(i64, i64)>,
 ) -> Result<Json<AidStation>, AppError> {
     let aid_station = sqlx::query_as!(
         AidStation,

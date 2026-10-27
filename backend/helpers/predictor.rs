@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     db::models::{AidStation, Course, Race},
     errors::AppError,
+    helpers::gpx_parser::GpxSegment,
 };
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -19,6 +20,7 @@ pub fn calculate_predictions(
     let distance_km = course.total_distance_km;
 
     // Calculate elevation gain/distance per aid station sections (timing sections), assign difficulties
+    // Assign difficulties by multiplying section distances by the gap_factor.
 
     // Apply time strategy (positive/negative) to get planned sections
 

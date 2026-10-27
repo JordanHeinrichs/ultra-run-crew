@@ -4,16 +4,47 @@ use gpx::{Gpx, Track, Waypoint};
 
 use crate::errors::AppError::{self, BadRequest};
 
-pub const SEGMENT_LENGTH: f64 = 500.0;
+pub const SEGMENT_LENGTH: f64 = 100.0;
 
 #[derive(Debug)]
 pub struct GpxSegment {
     pub km: f64,
-    pub gain_m: f64,
-    pub loss_m: f64,
+    pub dist_m: f64,
+    pub elev_diff_m: f64,
+    pub gap_factor: f64,
 }
 
-pub fn generate_segments_from_gpx(file: Vec<u8>) -> Result<Vec<GpxSegment>, AppError> {
+impl GpxSegment {
+    fn new(km: f64, dist_m: f64, elev_diff_m: f64) -> GpxSegment {
+        return GpxSegment {
+            km,
+            dist_m,
+            elev_diff_m,
+            gap_factor: gap_factor(dist_m, elev_diff_m),
+        };
+    }
+}
+
+#[derive(Debug)]
+pub struct CourseStats {
+    pub total_distance_km: f64,
+    pub elev_gain_m: f64,
+    pub elev_loss_m: f64,
+}
+
+impl CourseStats {
+    fn empty() -> CourseStats {
+        CourseStats {
+            total_distance_km: 0.0,
+            elev_gain_m: 0.0,
+            elev_loss_m: 0.0,
+        }
+    }
+}
+
+pub fn generate_segments_from_gpx(
+    file: Vec<u8>,
+) -> Result<(Vec<GpxSegment>, CourseStats), AppError> {
     let gpx: Gpx = read(&file[..]).map_err(|_| BadRequest("Invalid GPX file".into()))?;
     if gpx.tracks.is_empty() {
         return Err(BadRequest("Invalid GPX file".into()));
@@ -27,17 +58,52 @@ pub fn generate_segments_from_gpx(file: Vec<u8>) -> Result<Vec<GpxSegment>, AppE
         .collect();
 
     if points.len() < 2 {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), CourseStats::empty()));
     }
-    Ok(calculate_segments(&points))
+    let segments = calculate_segments(&points);
+    let course_stats = calculate_course_stats(&points, &segments);
+    Ok((segments, course_stats))
+}
+
+fn calculate_course_stats(points: &Vec<&Waypoint>, segments: &Vec<GpxSegment>) -> CourseStats {
+    if segments.len() == 0 {
+        return CourseStats::empty();
+    }
+
+    let total_distance = match segments.last() {
+        Some(last) => last.km + last.dist_m / 1000.0,
+        _ => 0.0,
+    };
+
+    let mut elev_gain_m = 0.0;
+    let mut elev_loss_m = 0.0;
+
+    for i in 0..points.len() - 1 {
+        let p1 = points[i];
+        let p2 = points[i + 1];
+
+        let ele_diff = match (p1.elevation, p2.elevation) {
+            (Some(e1), Some(e2)) => e2 - e1,
+            _ => 0.0,
+        };
+        match ele_diff > 0.0 {
+            true => elev_gain_m += ele_diff,
+            false => elev_loss_m += ele_diff.abs(),
+        };
+    }
+
+    CourseStats {
+        total_distance_km: total_distance,
+        elev_gain_m: elev_gain_m,
+        elev_loss_m: elev_loss_m,
+    }
 }
 
 fn calculate_segments(points: &Vec<&Waypoint>) -> Vec<GpxSegment> {
     let mut segments = Vec::new();
 
     let mut current_dist_m = 0.0;
-    let mut current_gain_m = 0.0;
-    let mut current_loss_m = 0.0;
+    let mut current_diff_m = 0.0;
 
     for i in 0..points.len() - 1 {
         let p1 = points[i];
@@ -58,38 +124,29 @@ fn calculate_segments(points: &Vec<&Waypoint>) -> Vec<GpxSegment> {
             let needed_for_segment_m = SEGMENT_LENGTH - current_dist_m;
             let prorate = needed_for_segment_m / step_distance;
 
-            if ele_diff > 0.0 {
-                current_gain_m += ele_diff * prorate;
-            } else {
-                current_loss_m += (ele_diff * prorate).abs();
-            }
+            current_diff_m += ele_diff * prorate;
 
-            segments.push(GpxSegment {
-                km: (segments.len() + 1) as f64 * SEGMENT_LENGTH / 1000.0,
-                gain_m: current_gain_m,
-                loss_m: current_loss_m,
-            });
+            segments.push(GpxSegment::new(
+                segments.len() as f64 * SEGMENT_LENGTH / 1000.0,
+                SEGMENT_LENGTH,
+                current_diff_m,
+            ));
             remaining_step_m -= needed_for_segment_m;
             current_dist_m = 0.0;
-            current_gain_m = 0.0;
-            current_loss_m = 0.0;
+            current_diff_m = 0.0;
         }
 
         if remaining_step_m > 0.0 {
             let prorate = remaining_step_m / step_distance;
             current_dist_m += remaining_step_m;
-            if ele_diff > 0.0 {
-                current_gain_m += ele_diff * prorate;
-            } else {
-                current_loss_m += (ele_diff * prorate).abs();
-            }
+            current_diff_m += ele_diff * prorate;
         }
     }
-    segments.push(GpxSegment {
-        km: (segments.len() as f64 * SEGMENT_LENGTH + current_dist_m) / 1000.0,
-        gain_m: current_gain_m,
-        loss_m: current_loss_m,
-    });
+    segments.push(GpxSegment::new(
+        (segments.len() as f64 * SEGMENT_LENGTH + current_dist_m) / 1000.0,
+        current_dist_m,
+        current_diff_m,
+    ));
     segments
 }
 
@@ -106,6 +163,37 @@ fn haversine_m(p1: &Point<f64>, p2: &Point<f64>) -> f64 {
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
 
     earth_radius_m * c
+}
+
+// Computes the grade adjusted pace (GAP) factor
+fn gap_factor(dist_m: f64, elev_diff_m: f64) -> f64 {
+    if dist_m <= 0.0 {
+        return 1.0;
+    }
+
+    let grade_percent = ((elev_diff_m / dist_m) * 100.0).clamp(-50.0, 50.0);
+
+    // Minetti (2002) normalized polynomial coefficients for grade in %
+    // const C5: f64 =  4.31666667e-09; // ( 155.4 / 3.6) * 1e-10
+    // const C4: f64 = -8.44444444e-08; // ( -30.4 / 3.6) * 1e-8
+    // const C3: f64 = -1.20277778e-05; // ( -43.3 / 3.6) * 1e-6
+    // const C2: f64 =  1.28611111e-03; // (  46.3 / 3.6) * 1e-4
+    // const C1: f64 =  5.41666667e-02; // (  19.5 / 3.6) * 1e-2
+    // const C0: f64 =  1.000000000;    // (   3.6 / 3.6)
+
+    // Adjusted (inspired from Strava) for higher downhill steep downhill penalty
+    const C5: f64 = -5.96892723e-10;
+    const C4: f64 = -3.66663630e-07;
+    const C3: f64 = -1.66779606e-06;
+    const C2: f64 = 1.82471254e-03;
+    const C1: f64 = 3.01350192e-02;
+    const C0: f64 = 0.997584372;
+
+    C5.mul_add(grade_percent, C4)
+        .mul_add(grade_percent, C3)
+        .mul_add(grade_percent, C2)
+        .mul_add(grade_percent, C1)
+        .mul_add(grade_percent, C0)
 }
 
 #[cfg(test)]
@@ -193,19 +281,16 @@ mod tests {
         let waypoints = vec![&wp1, &wp2, &wp3];
         let segments = calculate_segments(&waypoints);
 
-        assert_eq!(segments.len(), 2);
+        assert_eq!(segments.len(), 9);
 
-        assert_abs_diff_eq!(segments[0].km, 0.5, epsilon = 0.001);
-        assert_abs_diff_eq!(segments[1].km, 0.8859, epsilon = 0.001);
+        assert_abs_diff_eq!(segments[0].km, 0.0, epsilon = 0.001);
+        assert_abs_diff_eq!(segments[1].km, 0.1, epsilon = 0.001);
+        assert_abs_diff_eq!(segments[1].dist_m, SEGMENT_LENGTH, epsilon = 0.001);
+        assert_abs_diff_eq!(segments[8].dist_m, 85.878, epsilon = 0.1);
 
         assert_abs_diff_eq!(
-            segments.iter().map(|s| s.gain_m).sum::<f64>(),
-            50.0,
-            epsilon = 1.0
-        );
-        assert_abs_diff_eq!(
-            segments.iter().map(|s| s.loss_m).sum::<f64>(),
-            140.0,
+            segments.iter().map(|s| s.elev_diff_m).sum::<f64>(),
+            -90.0,
             epsilon = 1.0
         );
     }

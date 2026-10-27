@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS course_segments (
   id INTEGER PRIMARY KEY NOT NULL,
   course_id INTEGER NOT NULL,
   km REAL NOT NULL,
-  gain_m REAL NOT NULL,
-  loss_m REAL NOT NULL,
+  elev_diff_m REAL NOT NULL,
+  gap_factor REAL NOT NULL,
   FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
 );

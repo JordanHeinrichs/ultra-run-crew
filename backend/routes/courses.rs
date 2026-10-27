@@ -58,7 +58,7 @@ async fn course_upload(
     );
 
     let bytes = file_bytes.ok_or(BadRequest("Failed to get multipart file".into()))?;
-    let segments = generate_segments_from_gpx(bytes)?;
+    let (segments, stats) = generate_segments_from_gpx(bytes)?;
     if segments.len() == 0 {
         return Err(BadRequest("Unable to parse distance from GPX".into()));
     }
@@ -71,22 +71,22 @@ async fn course_upload(
         RETURNING id as "id!", race_id as "race_id!", total_distance_km as "total_distance_km!", total_elevation_gain_m as "total_elevation_gain_m!",  total_elevation_loss_m as "total_elevation_loss_m!", is_deleted as "is_deleted!", created_at as "created_at!", updated_at as "updated_at!"
         "#,
         race_id,
-        segments.last().unwrap().km,
-        segments.iter().map(|s| s.gain_m).sum::<f64>(),
-        segments.iter().map(|s| s.loss_m).sum::<f64>(),
+        &stats.total_distance_km,
+        &stats.elev_gain_m,
+        &stats.elev_loss_m
     )
     .fetch_optional(&state.db)
     .await?
     .ok_or_else(|| AppError::InternalServerError())?;
 
     let mut query_builder: QueryBuilder<Sqlite> =
-        QueryBuilder::new("INSERT INTO course_segments (course_id, km, gain_m, loss_m) ");
+        QueryBuilder::new("INSERT INTO course_segments (course_id, km, elev_diff_m, gap_factor) ");
 
     query_builder.push_values(segments, |mut b, segment| {
         b.push_bind(course.id)
             .push_bind(segment.km)
-            .push_bind(segment.gain_m)
-            .push_bind(segment.loss_m);
+            .push_bind(segment.elev_diff_m)
+            .push_bind(segment.gap_factor);
     });
 
     let query = query_builder.build();

@@ -94,8 +94,8 @@ pub struct Course {
 #[serde(rename_all = "camelCase")]
 pub struct CourseSegment {
     pub id: i64,
-    pub route_id: i64,
+    pub course_id: i64,
     pub km: f64,
-    pub gain_m: f64,
-    pub loss_m: f64,
+    pub elev_diff_m: f64,
+    pub gap_factor: f64,
 }
